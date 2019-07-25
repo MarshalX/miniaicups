@@ -54,7 +54,7 @@ class Bonus:
 class Nitro(Bonus):
     color = (255, 249, 221, 255)
     image_path = 'sprites/flash.png'
-    name = 'Нитро'
+    name = 'Nitro'
     visio_name = 'n'
 
     def apply(self, player):
@@ -79,7 +79,7 @@ class Nitro(Bonus):
 class Slowdown(Bonus):
     color = (234, 249, 255, 255)
     image_path = 'sprites/explorer.png'
-    name = 'Замедление'
+    name = 'Slowdown'
     visio_name = 's'
 
     def apply(self, player):
@@ -104,7 +104,7 @@ class Slowdown(Bonus):
 class Saw(Bonus):
     color = (226, 228, 226, 255)
     image_path = 'sprites/saw.png'
-    name = 'Пила'
+    name = 'Saw'
     visio_name = 'saw'
     lines = []
     opacity_step = 10

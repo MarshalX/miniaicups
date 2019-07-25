@@ -5,10 +5,12 @@ import copy
 import gzip
 import random
 
+from clients import RewindClient
+from game_objects.scene import Scene
 from helpers import is_intersect
 from constants import WIDTH, WINDOW_HEIGHT, WINDOW_WIDTH, PLAYER_COLORS, MAX_TICK_COUNT, BONUS_CHANCE, \
     BONUSES_MAX_COUNT, X_CELLS_COUNT, Y_CELLS_COUNT, SPEED, NEUTRAL_TERRITORY_SCORE, ENEMY_TERRITORY_SCORE, \
-    LINE_KILL_SCORE, SAW_KILL_SCORE, AVAILABLE_BONUSES, SAW_SCORE
+    LINE_KILL_SCORE, SAW_KILL_SCORE, AVAILABLE_BONUSES, SAW_SCORE, SAVE
 from game_objects.player import Player
 from game_objects.bonuses import Nitro, Slowdown, Bonus, Saw
 
@@ -387,5 +389,103 @@ class LocalGame(Game):
 
     async def game_loop(self, *args, **kwargs):
         self.scene.clear()
+        self.draw()
+        return await super().game_loop(*args, **kwargs)
+
+
+class RewindGame(Game):
+    def __init__(self, clients, _, timeout, host=None, port=None):
+        super().__init__(clients)
+        self.client = RewindClient(host, port)
+        self.timeout = timeout
+
+        self.to_draw = []
+
+    def print_bonuses(self):
+        for player in self.players:
+            if len(player.bonuses) > 0:
+                for bonus in player.bonuses:
+                    label = '{} - {} - {}'.format(player.name, bonus.name, bonus.get_remaining_ticks())
+                    self.to_draw.append(self.client.message(label))
+
+    def print_losers(self):
+        for player in self.losers:
+            label = '{} lost, score: {}'.format(player.name, player.score)
+            self.to_draw.append(self.client.message(label))
+
+    def print_scores(self):
+        for player in self.players:
+            label = '{} score: {}'.format(player.name, player.score)
+            self.to_draw.append(self.client.message(label))
+
+    def draw_bonuses(self):
+        for bonus in self.bonuses:
+            self.to_draw.append(self.client.cell(bonus.x, bonus.y, bonus.color))
+            self.to_draw.append(self.client.cell_popup(bonus.x, bonus.y, bonus.name))
+
+    def print_leaderboard(self):
+        self.print_losers()
+        self.print_scores()
+        self.print_bonuses()
+
+    def draw_border(self):
+        self.to_draw.append(self.client.line(0, 0, 0, WINDOW_HEIGHT, Scene.border_color))
+        self.to_draw.append(self.client.line(0, WINDOW_HEIGHT, WINDOW_WIDTH, WINDOW_HEIGHT, Scene.border_color))
+        self.to_draw.append(self.client.line(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_WIDTH, 0, Scene.border_color))
+        self.to_draw.append(self.client.line(WINDOW_WIDTH, 0, 0, 0, Scene.border_color))
+
+    def draw(self):
+        for player in self.players:
+            for x, y in player.territory.points:
+                self.to_draw.append(self.client.cell(x, y, player.territory.color))
+                self.to_draw.append(self.client.cell_popup(x, y, f'{player.name}`s territory'))
+
+        for pair in Saw.lines[:]:
+            pair[0] -= Saw.opacity_step
+            if pair[0] <= 0:
+                Saw.lines.remove(pair)
+            else:
+                for x, y in pair[1]:
+                    self.to_draw.append(self.client.cell(x, y, (*Saw.line_color, pair[0])))
+
+        for pair in Saw.territories[:]:
+            pair[0] = [*pair[0][:3], pair[0][3] - Saw.opacity_step]
+            if pair[0][3] <= 0:
+                Saw.territories.remove(pair)
+            else:
+                for x, y in pair[1]:
+                    self.to_draw.append(self.client.cell(x, y, pair[0]))
+
+        for player in self.players:
+            for x, y in player.lines:
+                self.to_draw.append(self.client.cell(x, y, player.line_color))
+                self.to_draw.append(self.client.cell_popup(x, y, f'{player.name}`s line'))
+
+        for number, player in enumerate(self.players):
+            self.to_draw.append(self.client.cell(player.x, player.y, player.color))
+            self.to_draw.append(self.client.cell_popup(player.x, player.y, player.name))
+
+            if player.rewind:
+                for obj in player.rewind:
+                    obj.update({'layer': number + 2})
+                    self.to_draw.append(obj)
+
+        self.draw_border()
+        self.draw_bonuses()
+        self.print_leaderboard()
+
+        if len(self.players) == 0:
+            self.to_draw.append(self.client.message('GAME OVER'))
+        elif self.timeout and self.tick >= MAX_TICK_COUNT:
+            self.to_draw.append(self.client.message('TIMEOUT'))
+
+        self.client.end_frame(self.to_draw)
+
+    def game_save(self):
+        if SAVE:
+            super().game_save()
+
+    async def game_loop(self, *args, **kwargs):
+        self.to_draw.clear()
         self.draw()
         return await super().game_loop(*args, **kwargs)

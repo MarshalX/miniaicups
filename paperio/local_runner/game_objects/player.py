@@ -27,6 +27,8 @@ class Player:
         self.client = client
         self.is_disconnected = False
 
+        self.rewind = []
+
     def change_direction(self, command):
         self.prev_direction = self.direction
 
@@ -109,6 +111,7 @@ class Player:
         try:
             client_answer = await self.client.get_command()
             if client_answer:
+                self.rewind = client_answer.get('rewind')
                 debug_info = client_answer.get('debug')
                 error_info = client_answer.get('error')
                 if debug_info:

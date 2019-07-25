@@ -1,3 +1,4 @@
+import _socket
 import os
 import asyncio
 import datetime
@@ -7,7 +8,7 @@ import random
 from subprocess import Popen, PIPE
 
 import pyglet
-from constants import LEFT, RIGHT, UP, DOWN, MAX_EXECUTION_TIME, REQUEST_MAX_TIME
+from constants import LEFT, RIGHT, UP, DOWN, MAX_EXECUTION_TIME, REQUEST_MAX_TIME, WIDTH, WINDOW_HEIGHT
 
 
 class Client(object):
@@ -248,3 +249,94 @@ class FileClient(Client):
             'is_private': True,
             'location': self.path_to_log
         }
+
+
+class RewindClient:
+    def __init__(self, host=None, port=None):
+        self.socket = _socket.socket()
+        self.socket.setsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, True)
+        if host is None:
+            host = "127.0.0.1"
+            port = 9111
+        self.socket.connect((host, port))
+
+    def close(self):
+        self.socket.close()
+
+    def send(self, obj):
+        if self.socket:
+            self.socket.sendall(json.dumps(obj).encode('utf-8'))
+
+    @staticmethod
+    def _convert_color(color):
+        return color[3]*0xffffff+color[0]*0xffff+color[1]*0xff+color[2]
+
+    @staticmethod
+    def _reverse_points(*args):
+        return WINDOW_HEIGHT - args[0] if len(args) == 1 else [WINDOW_HEIGHT - p for p in args]
+
+    def cell(self, x, y, color):
+        x1, y1 = x - WIDTH // 2, y - WIDTH // 2
+        return self.rectangle(x1, y1, x1 + WIDTH, y1 + WIDTH, color)
+
+    def cell_popup(self, x, y, text):
+        return self.popup(x, y, WIDTH // 2, text)
+
+    def circle(self, x, y, radius, color, layer=1):
+        y = self._reverse_points(y)
+        color = self._convert_color(color)
+        return {
+            'type': 'circle',
+            'x': x,
+            'y': y,
+            'r': radius,
+            'color': color,
+            'layer': layer
+        }
+
+    def rectangle(self, x1, y1, x2, y2, color, layer=1):
+        y1, y2 = self._reverse_points(y1, y2)
+        color = self._convert_color(color)
+        return {
+            'type': 'rectangle',
+            'x1': x1,
+            'y1': y1,
+            'x2': x2,
+            'y2': y2,
+            'color': color,
+            'layer': layer
+        }
+
+    def line(self, x1, y1, x2, y2, color, layer=1):
+        y1, y2 = self._reverse_points(y1, y2)
+        color = self._convert_color(color)
+        return {
+            'type': 'line',
+            'x1': x1,
+            'y1': y1,
+            'x2': x2,
+            'y2': y2,
+            'color': color,
+            'layer': layer
+        }
+
+    def popup(self, x, y, r, text):
+        y = self._reverse_points(y)
+        return {
+            'type': 'popup',
+            'x': x,
+            'y': y,
+            'r': r,
+            'text': text
+        }
+
+    def message(self, msg):
+        return {
+            'type': 'message',
+            'message': f'{msg}\n'
+        }
+
+    def end_frame(self, data):
+        for obj in data:
+            self.send(obj)
+        self.send({'type': 'end'})

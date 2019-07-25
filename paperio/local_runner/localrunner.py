@@ -10,7 +10,7 @@ from helpers import TERRITORY_CACHE, load_image
 from clients import KeyboardClient, SimplePythonClient, FileClient
 from constants import LR_CLIENTS_MAX_COUNT, MAX_TICK_COUNT, WINDOW_WIDTH, WINDOW_HEIGHT
 from game_objects.scene import Scene
-from game_objects.game import LocalGame
+from game_objects.game import RewindGame
 
 
 loop = events.new_event_loop()
@@ -103,7 +103,7 @@ class Runner:
     def run_game():
         pyglet.clock.unschedule(Runner.game_over_loop)
         Runner.load_sprites()
-        Runner.game = LocalGame(clients, scene, args.timeout == 'on')
+        Runner.game = RewindGame(clients, scene, args.timeout == 'on')
         Runner.game.send_game_start()
         pyglet.clock.schedule_interval(Runner.game_loop_wrapper, 1 / 200)
 
