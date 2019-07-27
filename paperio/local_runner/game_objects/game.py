@@ -428,6 +428,12 @@ class RewindGame(Game):
         self.print_scores()
         self.print_bonuses()
 
+    def draw_cell_popup(self):
+        width = WIDTH // 2
+        for xi, x in enumerate(range(width, WINDOW_WIDTH, WIDTH)):
+            for yi, y in enumerate(range(width, WINDOW_HEIGHT, WIDTH)):
+                self.to_draw.append(self.client.cell_popup(x, y, f'{xi}:{yi}'))
+
     def draw_border(self):
         self.to_draw.append(self.client.line(0, 0, 0, WINDOW_HEIGHT, Scene.border_color))
         self.to_draw.append(self.client.line(0, WINDOW_HEIGHT, WINDOW_WIDTH, WINDOW_HEIGHT, Scene.border_color))
@@ -470,6 +476,7 @@ class RewindGame(Game):
                     obj.update({'layer': number + 2})
                     self.to_draw.append(obj)
 
+        self.draw_cell_popup()
         self.draw_border()
         self.draw_bonuses()
         self.print_leaderboard()
